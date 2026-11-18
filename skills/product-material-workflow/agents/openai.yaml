@@ -1,0 +1,7 @@
+interface:
+  display_name: "产品研究、架构与材料"
+  short_description: "统筹产品架构、资料、需求、竞品研究与汇报，并复用现有制作能力"
+  default_prompt: "使用 $product-material-workflow 按本次读者和目标组织产品架构与材料，按需复用研究、编辑和制作能力，并维护对应主稿。"
+
+policy:
+  allow_implicit_invocation: true

@@ -1,0 +1,4 @@
+interface:
+  display_name: "中文文档编辑"
+  short_description: "跨项目撰写与精简中文文档，去除冗余和防御性文案，保留事实与验收条件"
+  default_prompt: "使用 $chinese-document-editor 按当前项目用途和样本撰写或优化文档，行文简洁直接，保留关键事实、规则与验收条件。"

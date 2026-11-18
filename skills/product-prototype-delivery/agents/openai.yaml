@@ -1,0 +1,4 @@
+interface:
+  display_name: "高保真产品原型生成与验收"
+  short_description: "沿用现有设计包生成与精修高保真页面，检查视觉、完整路径与公开页面 SEO"
+  default_prompt: "使用 $product-prototype-delivery 按现有设计包生成或优化高保真页面，兼顾 SEO 友好，完成视觉与关键路径验收。"

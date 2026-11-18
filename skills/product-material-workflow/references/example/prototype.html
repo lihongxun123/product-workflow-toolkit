@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>山岬工坊 · 活动候补</title>
+  <link rel="icon" href="data:,">
+  <style>
+    :root {
+      font: 16px/1.55 system-ui, "Microsoft YaHei", sans-serif;
+      color: #1b2d2b;
+      background: #f4f7f5;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    main { max-width: 58rem; margin: auto; padding: 2rem 1.25rem 3rem; }
+    h1, h2, p { margin-block: 0 0.65rem; }
+    h1 { font-size: clamp(1.65rem, 4vw, 2.3rem); }
+    h2 { font-size: 1.13rem; }
+    .context { color: #526661; }
+    .role { margin: 1.6rem 0 1rem; display: flex; gap: .65rem; align-items: center; }
+    .layout { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 1rem; }
+    .panel { background: #fff; padding: 1.25rem; border: 1px solid #cedcd6; border-radius: .7rem; }
+    .controls { display: flex; flex-wrap: wrap; align-items: center; gap: .55rem; margin-top: 1rem; }
+    button, select {
+      color: inherit;
+      font: inherit;
+      min-height: 2.75rem;
+      padding: .35rem .7rem;
+      border: 1px solid #778e85;
+      border-radius: .4rem;
+      background: #fff;
+    }
+    button { cursor: pointer; }
+    button.primary { color: #fff; background: #175849; border-color: #175849; }
+    button:disabled { color: #54635e; border-color: #d0dbd5; background: #eef2ef; cursor: default; }
+    :focus-visible { outline: 3px solid #265cd1; outline-offset: 2px; }
+    .status { font-weight: 650; }
+    #feedback { min-height: 1.6rem; margin-top: .85rem; }
+    #feedback[data-kind="error"] { color: #922d2d; }
+    #confirmation { margin-top: 1rem; border-top: 1px solid #cedcd6; padding-top: 1rem; }
+    ol { margin: .4rem 0 .7rem; padding-left: 1.7rem; }
+    summary { cursor: pointer; }
+    .toggle { display: flex; align-items: center; gap: .45rem; margin: 1rem 0 .55rem; }
+    [hidden] { display: none; }
+    @media (max-width: 40rem) {
+      .layout { grid-template-columns: minmax(0, 1fr); }
+      main { padding-top: 1.2rem; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>周末木作课</h1>
+    <p class="context">山岬工坊 · 活动候补演示</p>
+  </header>
+  <div class="role">
+    <label for="role">演示角色</label>
+    <select id="role">
+      <option value="lin">访客 · 林予</option>
+      <option value="pan">访客 · 潘禾</option>
+      <option value="staff">活动工作人员</option>
+    </select>
+  </div>
+  <div class="layout">
+    <section class="panel" aria-labelledby="activity-heading">
+      <h2 id="activity-heading">活动状态</h2>
+      <p id="seats"></p>
+      <section id="visitor" aria-labelledby="visitor-heading">
+        <h2 id="visitor-heading">我的预约</h2>
+        <p id="visitor-status" class="status" tabindex="-1"></p>
+        <p id="visitor-guidance"></p>
+        <div class="controls">
+          <button id="join" type="button" class="primary">加入候补</button>
+          <button id="book" type="button" class="primary" hidden>直接预约</button>
+          <button id="leave" type="button">退出候补</button>
+        </div>
+      </section>
+      <section id="staff" aria-labelledby="staff-heading" hidden>
+        <h2 id="staff-heading">候补队列</h2>
+        <p id="empty-queue">当前无人候补。</p>
+        <ol id="queue" aria-label="候补顺序"></ol>
+        <button id="start-promotion" type="button" class="primary">递补队首</button>
+        <div id="confirmation" hidden>
+          <p id="target"></p>
+          <div class="controls">
+            <button id="confirm-promotion" type="button" class="primary">确认递补</button>
+            <button id="cancel-promotion" type="button">返回队列</button>
+          </div>
+        </div>
+      </section>
+      <p id="feedback" role="status" aria-atomic="true" tabindex="-1"></p>
+    </section>
+    <aside class="panel" aria-label="演示控制">
+      <details open>
+        <summary>演示控制</summary>
+        <div class="controls">
+          <button id="release" type="button">释放一个名额</button>
+        </div>
+        <label class="toggle"><input id="fail" type="checkbox"> 模拟下一次保存失败</label>
+        <p class="context">切换角色可回读同一场活动。刷新页面可重置示例。</p>
+      </details>
+    </aside>
+  </div>
+</main>
+<script>
+  const get = (id) => document.getElementById(id);
+  const role = get("role");
+  const names = { lin: "林予", pan: "潘禾" };
+  const state = {
+    seats: 0,
+    oldBookings: 2,
+    queue: [],
+    confirmed: new Set(),
+    target: null
+  };
+
+  function showMessage(message = "", kind = "") {
+    const feedback = get("feedback");
+    feedback.dataset.kind = kind;
+    feedback.textContent = message;
+  }
+
+  function consumeSimulatedFailure() {
+    const toggle = get("fail");
+    if (!toggle.checked) return false;
+    toggle.checked = false;
+    showMessage("保存失败，请重试。", "error");
+    return true;
+  }
+
+  function render() {
+    const isStaff = role.value === "staff";
+    const booked = state.confirmed.has(role.value);
+    const waiting = state.queue.includes(role.value);
+    get("seats").textContent = state.seats ? `剩余 ${state.seats} 个名额` : "已满 · 2 个名额均已预约";
+    get("visitor").hidden = isStaff;
+    get("staff").hidden = !isStaff;
+    get("visitor-status").textContent = booked ? "已预约" : waiting ? "候补中" : "未预约";
+    get("visitor-guidance").textContent = booked ? "" : waiting
+      ? state.seats ? "已有空位，你也可以直接预约。" : "有空位时，工作人员按候补顺序递补。"
+      : state.seats ? "已有空位，可直接预约。" : "本场已满，可以加入候补。";
+    get("join").hidden = booked || waiting || state.seats > 0;
+    get("book").hidden = booked || state.seats === 0;
+    get("leave").hidden = !waiting;
+
+    const queueItems = state.queue.map((person) => {
+      const item = document.createElement("li");
+      item.textContent = names[person];
+      return item;
+    });
+    get("queue").replaceChildren(...queueItems);
+    get("empty-queue").hidden = queueItems.length > 0;
+    get("start-promotion").disabled = !state.seats || !queueItems.length || Boolean(state.target);
+    get("confirmation").hidden = !state.target;
+    get("target").textContent = state.target ? `递补 ${names[state.target]}，占用 1 个名额。` : "";
+    get("release").disabled = state.oldBookings === 0;
+  }
+
+  role.addEventListener("change", () => {
+    showMessage();
+    render();
+  });
+
+  get("join").addEventListener("click", () => {
+    const person = role.value;
+    if (person === "staff" || state.seats || state.confirmed.has(person) || state.queue.includes(person)) return;
+    if (consumeSimulatedFailure()) return;
+    state.queue.push(person);
+    render();
+    showMessage("已加入候补。");
+    get("visitor-status").focus();
+  });
+
+  get("book").addEventListener("click", () => {
+    const person = role.value;
+    if (person === "staff" || !state.seats || state.confirmed.has(person)) return;
+    if (consumeSimulatedFailure()) return;
+    state.confirmed.add(person);
+    state.seats--;
+    state.queue = state.queue.filter((waiting) => waiting !== person);
+    render();
+    showMessage("预约成功。");
+    get("visitor-status").focus();
+  });
+
+  get("leave").addEventListener("click", () => {
+    const person = role.value;
+    if (!state.queue.includes(person) || consumeSimulatedFailure()) return;
+    state.queue = state.queue.filter((waiting) => waiting !== person);
+    render();
+    showMessage("已退出候补。");
+    get("visitor-status").focus();
+  });
+
+  get("release").addEventListener("click", () => {
+    if (!state.oldBookings) return;
+    state.oldBookings--;
+    state.seats++;
+    render();
+    showMessage("已释放一个名额。");
+  });
+
+  get("start-promotion").addEventListener("click", () => {
+    if (role.value !== "staff" || !state.seats || !state.queue.length || state.target) return;
+    state.target = state.queue[0];
+    render();
+    showMessage();
+    get("confirm-promotion").focus();
+  });
+
+  get("cancel-promotion").addEventListener("click", () => {
+    state.target = null;
+    render();
+    if (!get("start-promotion").disabled) get("start-promotion").focus();
+  });
+
+  get("confirm-promotion").addEventListener("click", () => {
+    if (role.value !== "staff" || !state.target) return;
+    if (!state.seats || state.queue[0] !== state.target) {
+      state.target = null;
+      render();
+      showMessage("队列或余位已更新，请重新选择队首。", "error");
+      get("feedback").focus();
+      return;
+    }
+    if (consumeSimulatedFailure()) return;
+    const promoted = state.queue.shift();
+    state.confirmed.add(promoted);
+    state.seats--;
+    state.target = null;
+    render();
+    showMessage(`已为 ${names[promoted]} 完成预约。`);
+    get("feedback").focus();
+  });
+
+  render();
+</script>
+</body>
+</html>
